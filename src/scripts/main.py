@@ -1,14 +1,18 @@
+import asyncio
 import ctypes
 import os
+from pathlib import Path
 from queue import Queue
 import shutil
 import stat
 import subprocess
 import sys
 
+from desktop_notifier import Button, DesktopNotifier, Urgency
+import qasync
 from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QAction, QColor, QFont, QFontDatabase, QIcon
-from PyQt6.QtWidgets import QApplication, QFileDialog, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidgetItem, QMainWindow, QMessageBox, QStatusBar, QVBoxLayout, QWidget, QSystemTrayIcon
+from PyQt6.QtWidgets import QApplication, QFileDialog, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidgetItem, QMainWindow, QMessageBox, QStatusBar, QVBoxLayout, QWidget
 from tendo import singleton
 from PyQt6.QtSvgWidgets import QSvgWidget
 
@@ -40,7 +44,7 @@ class GameCheatsManager(QMainWindow):
         self.setMinimumSize(680, 520)
 
         # Version and links
-        self.appVersion = "2.3.0"
+        self.appVersion = "1.0.0"
         self.githubLink = "https://github.com/dyang886/Game-Cheats-Manager"
         self.bilibiliLink = "https://space.bilibili.com/256673766"
 
@@ -223,8 +227,8 @@ class GameCheatsManager(QMainWindow):
         # Check for software update
         if settings['checkAppUpdate']:
             self.versionFetcher = VersionFetchWorker('GCM')
-            self.versionFetcher.versionFetched.connect(lambda latest_version: self.send_notification(True, latest_version))
-            self.versionFetcher.fetchFailed.connect(lambda: self.send_notification(False))
+            self.versionFetcher.versionFetched.connect(lambda latest_version: asyncio.get_event_loop().create_task(self.send_notification(True, latest_version)))
+            self.versionFetcher.fetchFailed.connect(lambda: asyncio.get_event_loop().create_task(self.send_notification(False)))
             self.versionFetcher.start()
 
         # Update database, trainer update
@@ -240,32 +244,49 @@ class GameCheatsManager(QMainWindow):
         super().closeEvent(event)
         os._exit(0)
 
-    def send_notification(self, success, latest_version=0):
-        tray_icon = QSystemTrayIcon(QIcon(resource_path("assets/logo.ico")), self)
-        tray_icon.show()
+    def start_update(self, version):
+        try:
+            pid = str(os.getpid())
+            s3_path = f'GCM/Game Cheats Manager Setup {version}.exe'
+            subprocess.Popen(
+                [updater_path, '--pid', pid, '--s3-path', s3_path, '--theme', settings["theme"], '--language', settings["language"]],
+                creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
+                start_new_session=True
+            )
+
+        except subprocess.SubprocessError:
+            QMessageBox.critical(self, tr("Failure"), tr("Failed to update application."))
+
+    async def send_notification(self, success, latest_version=0):
+        notifier = DesktopNotifier(app_name="Game Cheats Manager", app_icon=Path(resource_path("assets/logo.ico")))
 
         if success and latest_version > self.appVersion:
-            tray_icon.showMessage(
-                tr('Update Available'),
-                tr('New version found: {old_version} ➜ {new_version}').format(
+            await notifier.send(
+                title=tr('Update Available'),
+                message=tr('New version found: {old_version} ➜ {new_version}').format(
                     old_version=self.appVersion,
                     new_version=latest_version
-                ) + '\n' + tr('Please navigate to `Options` ➜ `About` to download the latest version.'),
-                QSystemTrayIcon.MessageIcon.Information
+                ) + '\n' + tr('Would you like to update now?'),
+                urgency=Urgency.Normal,
+                buttons=[
+                    Button(title=tr("Yes"), on_pressed=lambda: self.start_update(latest_version)),
+                    Button(title=tr("No"))
+                ],
             )
+
         elif not success:
-            tray_icon.showMessage(
-                tr('Update Check Failed'),
-                tr('Failed to check for software update. You can navigate to `Options` ➜ `About` to check for updates manually.'),
-                QSystemTrayIcon.MessageIcon.Warning
+            await notifier.send(
+                title=tr('Update Check Failed'),
+                message=tr('Failed to check for software update. You can navigate to `Options` ➜ `About` to check for updates manually.'),
+                urgency=Urgency.Normal
             )
 
         self.versionFetcher.quit()
 
     def init_settings(self):
-        if settings["theme"] == "black":
+        if settings["theme"] == "dark":
             style = style_sheet.black
-        elif settings["theme"] == "white":
+        elif settings["theme"] == "light":
             style = style_sheet.white
 
         style = style.format(
@@ -477,7 +498,8 @@ class GameCheatsManager(QMainWindow):
 
     def fetch_trainer_search_data(self):
         self.fetch_fling_data()
-        self.fetch_xiaoxing_data()
+        if settings["enableXiaoXing"]:
+            self.fetch_xiaoxing_data()
 
     def on_main_interval(self):
         if settings["autoUpdateTranslations"]:
@@ -688,6 +710,8 @@ class GameCheatsManager(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    loop = qasync.QEventLoop(app)
+    asyncio.set_event_loop(loop)
 
     # Load the selected font
     primary_font_path = font_config[settings["language"]]
@@ -706,4 +730,5 @@ if __name__ == "__main__":
     qr.moveCenter(cp)
     mainWin.move(qr.topLeft())
 
-    sys.exit(app.exec())
+    with loop:
+        sys.exit(loop.run_forever())

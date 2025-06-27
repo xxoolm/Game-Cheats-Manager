@@ -105,7 +105,7 @@ class FetchFlingSite(DownloadBaseThread):
                 self.save_html_content(content, "fling_archive.html")
 
         elif settings['flingDownloadServer'] == "gcm":
-            url = "GCM/fling_archive.json"
+            url = "GCM/Data/fling_archive.json"
             signed_url = self.get_signed_download_url(url)
             file_path = self.request_download(signed_url, DATABASE_PATH)
             if not file_path:
@@ -124,7 +124,7 @@ class FetchFlingSite(DownloadBaseThread):
                 self.save_html_content(content, "fling_main.html")
 
         elif settings['flingDownloadServer'] == "gcm":
-            url = "GCM/fling_main.json"
+            url = "GCM/Data/fling_main.json"
             signed_url = self.get_signed_download_url(url)
             file_path = self.request_download(signed_url, DATABASE_PATH)
             if not file_path:
@@ -148,7 +148,7 @@ class FetchXiaoXingSite(DownloadBaseThread):
         update_failed = tr("Update from XiaoXing failed")
 
         self.message.emit(statusWidgetName, update_message)
-        url = "GCM/xiaoxing.json"
+        url = "GCM/Data/xiaoxing.json"
         signed_url = self.get_signed_download_url(url)
         file_path = self.request_download(signed_url, DATABASE_PATH)
         if not file_path:
@@ -172,7 +172,7 @@ class FetchTrainerTranslations(DownloadBaseThread):
         fetch_error = tr("Fetch trainer translations failed")
 
         self.message.emit(statusWidgetName, fetch_message)
-        url = "GCM/translations.json"
+        url = "GCM/Data/translations.json"
         signed_url = self.get_signed_download_url(url)
         file_path = self.request_download(signed_url, DATABASE_PATH)
         if not file_path:

@@ -23,7 +23,10 @@ def resource_path(relative_path):
         full_path = os.path.join(os.path.dirname(sys.executable), relative_path)
     # Development
     else:
-        full_path = os.path.join(os.path.dirname(__file__), '..', relative_path)
+        if relative_path == "Updater.exe":
+            full_path = os.path.join(os.path.dirname(__file__), '../../../Updater/target/release', relative_path)
+        else:
+            full_path = os.path.join(os.path.dirname(__file__), '..', relative_path)
 
     if not os.path.exists(full_path):
         formatted_message = (f"Couldn't find {full_path}. Please try reinstalling the application.")
@@ -55,7 +58,7 @@ def load_settings():
     default_settings = {
         "downloadPath": os.path.join(os.environ["APPDATA"], "GCM Trainers"),
         "language": app_locale,
-        "theme": "black",
+        "theme": "dark",
         "enSearchResults": False,
         "checkAppUpdate": True,
         "launchAppOnStartup": False,
@@ -77,6 +80,8 @@ def load_settings():
     try:
         with open(SETTINGS_FILE, "r") as f:
             settings = json.load(f)
+            if settings["theme"] not in ["dark", "light"]:
+                settings["theme"] = "dark"
     except Exception as e:
         print("Error loading settings json" + str(e))
         settings = default_settings
@@ -168,9 +173,9 @@ settings = load_settings()
 tr = get_translator()
 ensure_trainer_download_path_is_valid()
 
-if settings["theme"] == "black":
+if settings["theme"] == "dark":
     dropDownArrow_path = resource_path("assets/dropdown-white.png").replace("\\", "/")
-elif settings["theme"] == "white":
+elif settings["theme"] == "light":
     dropDownArrow_path = resource_path("assets/dropdown-black.png").replace("\\", "/")
 checkMark_path = resource_path("assets/check-mark.png").replace("\\", "/")
 upArrow_path = resource_path("assets/up.png").replace("\\", "/")
@@ -182,6 +187,7 @@ unzip_path = resource_path("dependency/7z/7z.exe")
 binmay_path = resource_path("dependency/binmay.exe")
 emptyMidi_path = resource_path("dependency/TrainerBGM.mid")
 elevator_path = resource_path("dependency/Elevate.exe")
+updater_path = resource_path("Updater.exe")
 
 language_options = {
     "English (US)": "en_US",
@@ -190,8 +196,8 @@ language_options = {
 }
 
 theme_options = {
-    tr("Black"): "black",
-    tr("white"): "white"
+    tr("Dark"): "dark",
+    tr("Light"): "light"
 }
 
 server_options = {
